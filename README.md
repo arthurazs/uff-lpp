@@ -1,4 +1,4 @@
-# Parallel Programming Lab (UFF) | Laboratório de Programação Paralela (UFF)
+# Parallel Programming Lab (UFF)
 
 ## Implementation
 
