@@ -1,7 +1,7 @@
 # Parallel Programming Lab (UFF)
 
 This repository contains all the assignments implemented for the
-Parallel Programming Lab at the Universidade Federal Fluminense (Masters
+Parallel Programming Lab at the Universidade Federal Fluminense (Master's
 Degree).
 
 **Contents**
@@ -22,6 +22,7 @@ Degree).
 
 Check [teste.c](teste.c) for a simple example:
 
+    $ cd uff-lpp
     $ mpicc teste.c -o teste
     $ mpirun -n 4 teste
     a Process 0 on inspiron out of 4
