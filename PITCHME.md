@@ -64,8 +64,8 @@ if(rank < 3) {
 +++?code=coursework/assignment1/matrix_mpi.c&lang=c
 
 @[52-63](Processes 0, 1 and 2)
-@[55](Prints a feedback)
 @[54-60](The multiplication)
+@[55](Prints a feedback)
 @[61-62](Sends a message with the result to the master [Process 3])
 @[64-77](Process 3)
 @[65](Prints a feedback)
