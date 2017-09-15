@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
         int matrix_x [X_ROWS][X_COLS] = {0};
 
-        if (rank < 3) {
+        if (rank < X_ROWS) {
             int line[X_COLS];
             printf("P(%1$d): Multiplying row %1$d with column %1$d\n", rank);
             for (int col = 0; col < B_COLS; col++) {
