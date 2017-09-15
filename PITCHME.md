@@ -9,25 +9,7 @@ Arthur Zopellaro
 
 +++
 
-```c
-for (int row = 0; row < A_ROWS; row++) {
-    for (int col = 0; col < B_COLS; col++) {
-        int sum = 0;
-        for (int ctrl = 0; ctrl < B_ROWS; ctrl++)
-            sum += matrix_a[row][ctrl] * matrix_b[ctrl][col];
-        matrix_x[row][col] = sum;
-    }
-}
-
-```
-Linear Programming
----
-
-## Code in mpi
-
-+++
-
-The matrices A[3][2] and B[2][3] will be the following:
+The matrices A and B will be the following:
 
 ```c
 int matrix_a [A_ROWS][A_COLS] = {
@@ -42,6 +24,23 @@ int matrix_b [B_ROWS][B_COLS] = {
 };
 ```
 
++++
+
+```c
+for (int row = 0; row < A_ROWS; row++) {
+    for (int col = 0; col < B_COLS; col++) {
+        int sum = 0;
+        for (int ctrl = 0; ctrl < B_ROWS; ctrl++)
+            sum += matrix_a[row][ctrl] * matrix_b[ctrl][col];
+        matrix_x[row][col] = sum;
+    }
+}
+
+```
+Linear Programming
+---
+
+## Code in openmpi
 $ mpirun **-n 4**
 
 +++
