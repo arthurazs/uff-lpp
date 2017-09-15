@@ -6,41 +6,16 @@ Arthur Zopellaro
 ---
 
 ## Code in C
+#### Linear Programming
++++?code=coursework/assignment1/matrix_c.c&lang=c
 
-+++
+@[28-37](Matrices A[3][2] and B[2][3])
+@[41-49](Matrix Multiplication)
 
-The matrices A and B will be the following:
-
-```c
-int matrix_a [A_ROWS][A_COLS] = {
-    {9, 0},
-    {5, 6},
-    {1, 2}
-};
-
-int matrix_b [B_ROWS][B_COLS] = {
-    {2, 4, 3},
-    {7, 8, 9}
-};
-```
-
-+++
-
-```c
-for (int row = 0; row < A_ROWS; row++) {
-    for (int col = 0; col < B_COLS; col++) {
-        int sum = 0;
-        for (int ctrl = 0; ctrl < B_ROWS; ctrl++)
-            sum += matrix_a[row][ctrl] * matrix_b[ctrl][col];
-        matrix_x[row][col] = sum;
-    }
-}
-
-```
-Linear Programming
 ---
 
 ## Code in openmpi
+#### Parallel Programming
 $ mpirun **-n 4**
 
 +++
