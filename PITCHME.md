@@ -28,7 +28,6 @@ $ mpirun **-n 4**
 @[42](Process 2)
 @[40-42, 46-47](Which leaves us with one extra process)
 @[50](Which will be used to join the results of each process into the Matrix X)
-@[52-63]()
 
 ---
 
