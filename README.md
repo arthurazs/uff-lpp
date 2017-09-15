@@ -37,4 +37,34 @@ Check [teste.c](teste.c) for a simple example:
 ### Matrix Multiplication
 
 **TODO**
-See [matrix_multiplication.c](coursework/assignment1/matrix_multiplication.c).
+
+Check the [slide](gitpitch.com/arthurazs/uff-lpp).
+
+See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
+
+    $ cd uff-lpp/coursework/assignment1
+    $ mpicc matrix_mpi.c -o matrix
+    $ mpirun -n 4 matrix
+
+    P(2): Multiplying row 2 with column 2
+    P(1): Multiplying row 1 with column 1
+    P(3): Waiting multiplication results
+    P(3): Received message from P(0)
+    P(3): Received message from P(1)
+    P(0): Multiplying row 0 with column 0
+    P(3): Received message from P(2)
+
+    Matrix A [3][2]
+    9 0
+    5 6
+    1 2
+
+    Matrix B [2][3]
+    2 4 3
+    7 8 9
+
+    Matrix X [3][3]
+    18 36 27
+    52 68 69
+    16 20 21
+
