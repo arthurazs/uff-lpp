@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
 
         if (rank < X_ROWS) {
             int line[X_COLS];
-            printf("P(%1$d): Multiplying row %1$d with column %1$d\n", rank);
             for (int col = 0; col < B_COLS; col++) {
+                printf("P(%1$d): Multiplying row %1$d with column %2$d\n", rank, col);
                 line[col] = 0;
                 for (int ctrl = 0; ctrl < B_ROWS; ctrl++)
                     line[col] +=

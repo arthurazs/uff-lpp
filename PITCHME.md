@@ -64,12 +64,12 @@ if(rank < 3) {
 +++?code=coursework/assignment1/matrix_mpi.c&lang=c
 
 @[52-63](Processes 0, 1 and 2)
-@[54](Prints a feedback)
-@[55-60](The multiplication)
-@[61](Sends a message with the result to the master (Process 3))
+@[55](Prints a feedback)
+@[54-60](The multiplication)
+@[61-62](Sends a message with the result to the master [Process 3])
 @[64-77](Process 3)
 @[65](Prints a feedback)
-@[66-72](Calls MPI_Recv for each origin (Processes 0, 1 and 2))
+@[66-72](Calls MPI_Recv for each origin [Processes 0, 1 and 2])
 @[68](Although MPI_Recv will block the reception buffer)
 @[69-70](Copy the values from the array of the origin to the Matrix X)
 @[71](Prints a feedback)
@@ -87,12 +87,18 @@ $ cd uff-lpp/coursework/assignment1
 $ mpicc matrix_mpi.c -o matrix
 $ mpirun -n 4 matrix
 
+P(2): Multiplying row 2 with column 0
+P(2): Multiplying row 2 with column 1
 P(2): Multiplying row 2 with column 2
-P(1): Multiplying row 1 with column 1
 P(3): Waiting multiplication results
-P(3): Received message from P(0)
-P(3): Received message from P(1)
+P(1): Multiplying row 1 with column 0
 P(0): Multiplying row 0 with column 0
+P(0): Multiplying row 0 with column 1
+P(0): Multiplying row 0 with column 2
+P(3): Received message from P(0)
+P(1): Multiplying row 1 with column 1
+P(1): Multiplying row 1 with column 2
+P(3): Received message from P(1)
 P(3): Received message from P(2)
 
 Matrix A [3][2]
@@ -111,8 +117,8 @@ Matrix X [3][3]
 ```
 
 @[1-3](Compiling and running the code)
-@[5-11](Feedback (MPI_Recv))
-@[13-25](Matrices)
+@[5-17](Feedback [MPI_Recv])
+@[19-31](Matrices)
 
 ---
 
