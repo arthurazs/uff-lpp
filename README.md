@@ -33,12 +33,11 @@ Check [teste.c](teste.c) for a simple example:
 ## Coursework
 
 - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
+- [Definite Integral (2nd Assignment)](#definite-integral)
 
 ### Matrix Multiplication
 
-**TODO**
-
-Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework).
+Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework/assignment1).
 
 See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
 
@@ -68,5 +67,13 @@ See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
     52 68 69
     16 20 21
 
-### ?
-TODO
+
+### Definite Integral
+
+[using](https://www.symbolab.com/solver/definite-integral-calculator/%5Cint_%7B1%7D%5E%7B6%7D%20%5Cfrac%7B1%7D%7Bx%7D%20dx)
+
+**TODO** improve matrix calc + fix local_n + slides
+
+Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework/assignment2).
+
+See the source code [integral_mpi.c](coursework/assignment2/integral_mpi.c):
