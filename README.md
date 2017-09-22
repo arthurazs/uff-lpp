@@ -38,7 +38,7 @@ Check [teste.c](teste.c) for a simple example:
 
 **TODO**
 
-Check the [slide](https://gitpitch.com/arthurazs/uff-lpp).
+Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework).
 
 See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
 
