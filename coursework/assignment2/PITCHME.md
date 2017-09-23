@@ -12,11 +12,11 @@ Arthur Zopellaro
 
 `$$\int _1^6\:\frac{1}{x}\:dx$$`
 
-ln(6) `$$\approx$$` 1.79175946923...
+`\(ln(6)\approx\1.79175946923...)`
 
 +++
 
-![Graph](coursework/assignment2/math.png)
+![Graph](coursework/assignment2/graph.png)
 
 `$$\int _1^6\:\frac{1}{x}\:dx$$`
 
