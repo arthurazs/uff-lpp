@@ -70,10 +70,40 @@ See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
 
 ### Definite Integral
 
-[using](https://www.symbolab.com/solver/definite-integral-calculator/%5Cint_%7B1%7D%5E%7B6%7D%20%5Cfrac%7B1%7D%7Bx%7D%20dx)
-
-**TODO** improve matrix calc + fix local_n + slides
-
 Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework/assignment2).
 
-See the source code [integral_mpi.c](coursework/assignment2/integral_mpi.c):
+Numerical Integration of a Definite Integral using MPI.
+
+Integral^1 ^to ^6 of **1 / x**:
+
+![Graph](coursework/assignment2/graph.png)
+
+![Math](coursework/assignment2/math.png)
+
+The graph was generated using
+[symbolab.com](https://www.symbolab.com/solver/definite-integral-calculator/%5Cint_%7B1%7D%5E%7B6%7D%20%5Cfrac%7B1%7D%7Bx%7D%20dx),
+check it out!
+
+Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
+
+    $ cd uff-lpp/coursework/assignment2
+    $ mpicc integral_mpi.c -o integral
+    $ mpirun -n 4 integral
+
+    P(3): Estimated 0.233402 for a(4.75) to b(6.00)
+    P(0): Estimated 0.812278 for a(1.00) to b(2.25)
+    P(2): Estimated 0.305017 for a(3.50) to b(4.75)
+    P(1): Estimated 0.441064 for a(2.25) to b(3.50)
+
+    P(0): MPI_Reduce
+    Integral (1 to 6) of 1/x
+
+    Expected  result  = 1.79175946923
+    Estimated result  = 1.79176079291
+                        -------------
+    Difference        = 0.00000132368
+
+
+# TODO
+
+improve matrix calc
