@@ -11,6 +11,8 @@ Degree).
     - [Implementation](#implementation)
 - [Coursework](#coursework)
     - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
+    - [Definite Integral (2nd Assignment)](#definite-integral)
+- [TODO](#todo)
 
 ## openmpi
 
@@ -73,8 +75,7 @@ See the source code [matrix_mpi.c](coursework/assignment1/matrix_mpi.c):
 Check the [slide](https://gitpitch.com/arthurazs/uff-lpp/master?p=coursework/assignment2).
 
 Numerical Integration of a Definite Integral using MPI.
-
-Integral^1 ^to ^6 of **1 / x**:
+Integral (1 to 6) of **1 / x**:
 
 ![Graph](coursework/assignment2/graph.png)
 
