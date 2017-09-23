@@ -59,7 +59,7 @@ Difference        = 0.00000132368
 ```
 
 @[1-3](Compiling and running the code)
-@[5-8](Feedback [MPI_Recv])
+@[5-8](Feedback)
 @[10-16](Comparison between expected and obtained results)
 
 ---
