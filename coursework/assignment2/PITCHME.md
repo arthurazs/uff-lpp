@@ -10,13 +10,17 @@ Arthur Zopellaro
 
 +++
 
+`$$\sum_{i=0}^n i^2 = \frac{(n^2+n)(2n+1)}{6}$$`
+
++++
+
 `$$\int _1^6\:\frac{1}{x}\:dx$$`
 
 ln(6) `$$\approx$$` 1.79175946923...
 
 +++
 
-![Graph](math.png)
+![Graph](coursework/assignment2/math.png)
 
 `$$\int _1^6\:\frac{1}{x}\:dx$$`
 
@@ -25,7 +29,7 @@ ln(6) `$$\approx$$` 1.79175946923...
 ## Code in openmpi
 #### Using MPI_Reduce
 
-+++?code=integral_mpi.c&lang=c
++++?code=coursework/assignment2/integral_mpi.c&lang=c
 
 @[29-36](Initializing variables)
 @[37-49](Allocating remaining processes)
