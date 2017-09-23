@@ -60,7 +60,9 @@ int main(int argc, char *argv[]) {
     if (rank == master) {
         double expected = 1.79175946923;
 
-        printf("Integral (%d to %d) of 1/x \n\n", a, b);
+        printf("Using %d processes\n", numprocs);
+        printf("Integral (%d to %d) of 1/x\n\n", a, b);
+
         printf("Expected  result  = %.11f\n", expected);
         printf("Estimated result  = %.11f\n", integral);
         printf("                    -------------\n");
