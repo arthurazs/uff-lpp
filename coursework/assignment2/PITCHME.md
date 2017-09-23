@@ -27,8 +27,8 @@ Arthur Zopellaro
 
 @[29-36](Initializing variables)
 @[37-49](Allocating remaining processes)
-@[51-52](Calls calculate(%29)
-@[5-19](Integrationg of f(x) = 1/x)
+@[51-52]("Calls calculate()")
+@[5-19](Integrationg of f(x<)> = 1/x)
 @[53-61](Prints a feedback and SUM the integration using MPI_Reduce)
 @[63-76](Prints the results)
 
