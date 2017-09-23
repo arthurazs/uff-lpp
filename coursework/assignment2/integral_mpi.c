@@ -50,7 +50,9 @@ int main(int argc, char *argv[]) {
 
     // Calculate
     double integral_local = calculate(local_a, local_b, local_n, h);
-    printf("P(%d): Estimated %f for a(%.2f) to b(%.2f)\n", rank, integral_local, local_a, local_b);
+    printf(
+        "P(%d): Estimated %f for a(%.2f) to b(%.2f)\n",
+        rank, integral_local, local_a, local_b);
     double integral;
 
     MPI_Reduce(
@@ -61,7 +63,8 @@ int main(int argc, char *argv[]) {
     if (rank == master) {
         double expected = 1.79175946923;
 
-        printf("\nP(%d): MPI_Reduce\nIntegral (%d to %d) of 1/x\n\n", rank, a, b);
+        printf("\nP(%d): MPI_Reduce\n", rank);
+        printf("Integral (%d to %d) of 1/x\n\n", a, b);
 
         printf("Expected  result  = %.11f\n", expected);
         printf("Estimated result  = %.11f\n", integral);
