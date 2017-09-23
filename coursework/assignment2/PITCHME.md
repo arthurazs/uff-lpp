@@ -10,10 +10,6 @@ Arthur Zopellaro
 
 +++
 
-`$$\sum_{i=0}^n i^2 = \frac{(n^2+n)(2n+1)}{6}$$`
-
-+++
-
 `$$\int _1^6\:\frac{1}{x}\:dx$$`
 
 ln(6) `$$\approx$$` 1.79175946923...
