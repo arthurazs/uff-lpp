@@ -111,14 +111,18 @@ improve matrix calc
 
 # mpi + boost
 
-[download](http://www.boost.org/doc/libs/1_65_1/more/getting_started/unix-variants.html)
-
-extract, then:
+[download](http://www.boost.org/doc/libs/1_65_1/more/getting_started/unix-variants.html), extract, then:
 
     $ cd path/to/boost_1_65_1
     $ ./bootstrap.sh --prefix=/home/username/boost
+    $ bjam --with-serialization --with-mpi
 
 to run:
+
+    $ mpic++ -o example example.cpp -std=c++11
+    $ mpirun -n 2 example
+
+if it doesn't work:
 
     $ mpic++ -o example example.cpp -lboost_mpi -lboost_serialization -std=c++11
     $ mpirun -n 2 example
