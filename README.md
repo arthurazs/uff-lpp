@@ -108,3 +108,17 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
 # TODO
 
 improve matrix calc
+
+# mpi + boost
+
+[download](http://www.boost.org/doc/libs/1_65_1/more/getting_started/unix-variants.html)
+
+extract, then:
+
+    $ cd path/to/boost_1_65_1
+    $ ./bootstrap.sh --prefix=/home/username/boost
+
+to run:
+
+    $ mpic++ -o example example.cpp -lboost_mpi -lboost_serialization -std=c++11
+    $ mpirun -n 2 example
