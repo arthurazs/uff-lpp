@@ -1,6 +1,7 @@
 #include <iostream>
 #include "HEFT.h"
 #include "MinMin.h"
+#include <mpi.h>
 
 typedef vector<Chromosome> vect_chrom_type;
 Data* data;
@@ -480,7 +481,7 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
         doNextPopulation(Population);
     }
 
-	
+
     // return the global best
     return best;
 }
@@ -519,8 +520,15 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
 
 int main(int argc, char **argv) {
 
-    clock_t begin = clock();
+    int numprocs, rank, master = 0, tag = 0;
 
+    MPI_Init(&argc, &argv);
+    MPI_Comm world = MPI_COMM_WORLD;
+    MPI_Status status;
+    MPI_Comm_rank(world, &rank);
+    MPI_Comm_size(world, &numprocs);
+
+    clock_t begin = clock();
 
     string name_workflow, name_cluster;
 
@@ -528,26 +536,76 @@ int main(int argc, char **argv) {
 
     setupCmd(argc, argv, &name_workflow, &name_cluster);
 
-    auto best = run(&name_workflow, &name_cluster);
+    int local_chromosomes = setting->num_chromosomes / numprocs;
+    int local_rest = setting->num_chromosomes % numprocs;
+    if(local_rest > rank)
+        local_chromosomes++;
 
+    setting->num_chromosomes = local_chromosomes;
+
+    Chromosome best = run(&name_workflow, &name_cluster);
     best.computeFitness(true, true);
 
-    clock_t end = clock();
+    int printing = false;
 
-    double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
+    if(rank != master) {
+        MPI_Send(&best.fitness, 1, MPI_DOUBLE, master, tag, world);
+    }
+    else {
 
-    if (setting->verbose){
-        cout << "\t **** HEA **** " << endl;
-        best.print();
+        // Compare all fitnesses
+        double fitnesses[numprocs];
+        fitnesses[master] = best.fitness;
+        for (int i = 1; i<numprocs;i++) {
+            double local;
+            MPI_Recv(&local, 1, MPI_DOUBLE, MPI_ANY_SOURCE, tag, world, &status);
+            fitnesses[status.MPI_SOURCE] = local;
+        }
+
+        double global_best = fitnesses[master];
+        int global_position = master;
+        for (int i = 0; i < numprocs; i++) {
+            if (fitnesses[i] < global_best) {
+                global_best = fitnesses[i];
+                global_position = i;
+            }
+        }
+
+        for (int i = 1; i < numprocs; i++) {
+            printing = false;
+            if (i == global_position)
+                printing = true;
+            MPI_Send(&printing, 1, MPI_INT, i, tag, world);
+        }
+
+        if (global_position == master)
+            printing = true;
     }
 
-    
-    cout << "Best fitness: " << best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
-        
+    if (rank != master) {
+        MPI_Recv(&printing, 1, MPI_INT, master, tag, world, &status);
+    }
+
+    if (printing == true) {
+
+        clock_t end = clock();
+
+        double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
+
+        if (setting->verbose){
+            cout << "\t **** HEA **** " << endl;
+            best.print();
+        }
+
+        cout << "Best fitness found by rank: " << rank << endl;
+        cout << "Best fitness: " << best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
+    }
 
 	delete data;
     //delete setting struct
     delete[] setting;
+
+    MPI_Finalize();
     return 0;
 }
 

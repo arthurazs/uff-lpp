@@ -59,6 +59,9 @@ public:
             scheduler(other->scheduler), vm_queue(other->vm_queue) {}
 
 
+    Chromosome() {}
+
+
     //virtual ~Chromosome();
     virtual ~Chromosome() {
         // TODO Auto-generated destructor stub
@@ -82,7 +85,7 @@ public:
         // compute makespan
         for (auto id_task : ordering) {//for each task, do
             if (id_task != data->id_root && id_task != data->id_sink) {//if is not root or sink than
-                
+
                 if (check_sequence && !checkTaskSeq(id_task)) {
                     std::cerr << "Encode error - Chrom: Error in the precedence relations." << endl;
                     throw;
@@ -111,7 +114,7 @@ public:
                 time_vector[id_task] = finish_time;
                 start_time_vector[id_task] = start_time;
                 queue[vm.id] = finish_time;
-                
+
             } else {// root and sink tasks
                 if (id_task == data->id_root)
                     time_vector[id_task] = 0;

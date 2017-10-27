@@ -1,6 +1,16 @@
 #include <iostream>
 #include "HEFT.h"
 #include "MinMin.h"
+#include <mpi.h>
+
+#define NTHREADS 3
+Chromosome global_best;
+struct arg_struct {
+    string* name_workflow;
+    string* name_cluster;
+    int local_generations;
+};
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef vector<Chromosome> vect_chrom_type;
 Data* data;
@@ -367,10 +377,12 @@ inline void localSearch(vect_chrom_type &Population, Data* data) {
     }
 }
 
-Chromosome run(string* name_workflow, string* name_cluster)  {
+void *run(void *arguments)  {
+
+    struct arg_struct *args = (struct arg_struct *) arguments;
 
     // Load input Files and the data structures used by the algorithms
-    data = new Data(name_workflow, name_cluster);
+    data = new Data(args->name_workflow, args->name_cluster);
 
 
     vector<Chromosome> Population;
@@ -425,7 +437,10 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
 
 
     // Get best solution from initial population
-    Chromosome best(Population[getBest(Population)]);
+    pthread_mutex_lock( &mutex );
+    if (global_best.fitness == 0)
+        global_best = Population[getBest(Population)];
+    pthread_mutex_unlock( &mutex );
 
 
     // Do generation
@@ -444,17 +459,18 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
         // Update best
         auto pos = getBest(Population);
 
-        if (best.fitness > Population[pos].fitness) {
+        pthread_mutex_lock( &mutex );
+        if (global_best.fitness > Population[pos].fitness) {
 
-            best = Population[pos];
+            global_best = Population[pos];
 
             // Apply path Relinking
             if (!Elite_set.empty())
-                best = pathRelinking(Elite_set, best, data);
+                global_best = pathRelinking(Elite_set, global_best, data);
 
             // Update Elite-set
-            if (check_distance(&best, &Elite_set))
-                Elite_set.push_back(best);  // Push all best' solutions on Elite-set
+            if (check_distance(&global_best, &Elite_set))
+                Elite_set.push_back(global_best);  // Push all best' solutions on Elite-set
 
             // check elite set size
             if (Elite_set.size() > static_cast<unsigned int>(setting->num_elite_set))
@@ -463,26 +479,27 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
 
             // Apply Local Search
 
-            best = localSearchN1(data, &best);
-            best = localSearchN2(data, &best);
-            best = localSearchN3(data, &best);
+            global_best = localSearchN1(data, &global_best);
+            global_best = localSearchN2(data, &global_best);
+            global_best = localSearchN3(data, &global_best);
 
-            Population[pos] = best;
+            Population[pos] = global_best;
 
             i = 0;
         }
+        pthread_mutex_unlock( &mutex );
 
         if (setting->verbose && (i % setting->print_gen) == 0)
-            cout << "Gen: " << i << " Fitness: " << best.fitness / 60.0 << "(s)" << endl;
+            cout << "Gen: " << i << " Fitness: " << global_best.fitness / 60.0 << "(s)" << endl;
 
         i += 1;
 
         doNextPopulation(Population);
     }
 
-	
+
     // return the global best
-    return best;
+    // return best;
 }
 
 
@@ -519,8 +536,15 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
 
 int main(int argc, char **argv) {
 
-    clock_t begin = clock();
+    int numprocs, rank, master = 0, tag = 0;
 
+    MPI_Init(&argc, &argv);
+    MPI_Comm world = MPI_COMM_WORLD;
+    MPI_Status status;
+    MPI_Comm_rank(world, &rank);
+    MPI_Comm_size(world, &numprocs);
+
+    clock_t begin = clock();
 
     string name_workflow, name_cluster;
 
@@ -528,26 +552,90 @@ int main(int argc, char **argv) {
 
     setupCmd(argc, argv, &name_workflow, &name_cluster);
 
-    auto best = run(&name_workflow, &name_cluster);
+    int local_chromosomes = setting->num_chromosomes / numprocs;
+    int local_rest = setting->num_chromosomes % numprocs;
+    if(local_rest > rank)
+        local_chromosomes++;
 
-    best.computeFitness(true, true);
+    setting->num_chromosomes = local_chromosomes;
 
-    clock_t end = clock();
+    // Thread
+    int local_generations = setting->num_generations / NTHREADS;
+    // int local_rest = setting->num_generations % NTHREADS; // FIXME
+    pthread_t thread[NTHREADS];
+    struct arg_struct args;
+    args.name_workflow = &name_workflow;
+    args.name_cluster = &name_cluster;
+    for(int i=0; i < NTHREADS; i++){
+        args.local_generations = local_generations;
+        pthread_create(&thread[i], NULL, run, (void *)&args);
+    }
+    for(int i=0; i < NTHREADS; i++)
+        pthread_join(thread[i], NULL);
 
-    double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
+    // global_best = run(&name_workflow, &name_cluster);
+    global_best.computeFitness(true, true);
 
-    if (setting->verbose){
-        cout << "\t **** HEA **** " << endl;
-        best.print();
+    int printing = false;
+
+    if(rank != master) {
+        MPI_Send(&global_best.fitness, 1, MPI_DOUBLE, master, tag, world);
+    }
+    else {
+
+        // Compare all fitnesses
+        double fitnesses[numprocs];
+        fitnesses[master] = global_best.fitness;
+        for (int i = 1; i<numprocs;i++) {
+            double local;
+            MPI_Recv(&local, 1, MPI_DOUBLE, MPI_ANY_SOURCE, tag, world, &status);
+            fitnesses[status.MPI_SOURCE] = local;
+        }
+
+        double global_best_fitness = fitnesses[master];
+        int global_position = master;
+        for (int i = 0; i < numprocs; i++) {
+            if (fitnesses[i] < global_best_fitness) {
+                global_best_fitness = fitnesses[i];
+                global_position = i;
+            }
+        }
+
+        for (int i = 1; i < numprocs; i++) {
+            printing = false;
+            if (i == global_position)
+                printing = true;
+            MPI_Send(&printing, 1, MPI_INT, i, tag, world);
+        }
+
+        if (global_position == master)
+            printing = true;
     }
 
-    
-    cout << "Best fitness: " << best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
-        
+    if (rank != master) {
+        MPI_Recv(&printing, 1, MPI_INT, master, tag, world, &status);
+    }
+
+    if (printing == true) {
+        clock_t end = clock();
+
+        double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
+
+        if (setting->verbose){
+            cout << "\t **** HEA **** " << endl;
+            global_best.print();
+        }
+
+
+        cout << "Best fitness found by rank: " << rank << endl;
+        cout << "Best fitness: " << global_best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
+    }
 
 	delete data;
     //delete setting struct
     delete[] setting;
+
+    MPI_Finalize();
     return 0;
 }
 
