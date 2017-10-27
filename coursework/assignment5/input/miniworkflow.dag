@@ -1,0 +1,42 @@
+1 4 3
+
+file0 2048 2 0 1
+file1 512
+file2 256
+file3 256
+file4 1024
+
+t0 task0 180 1 1
+file0
+file1
+t1 task1 560 1 2
+file0
+file2
+file3
+t2 task2 300 2 1
+file1
+file2
+file4
+
+t0 1
+t2
+t1 1
+t2
+t2 0 
+
+
+<n-staticfile> <n-dynamicFile> <n-tasks>
+
+<name-file> <size> <n-copies> <id-vm> ... <id-vm>
+<name-file> <size>
+<name-file> <size>
+
+<task-id> <task-name> <time> <n-input> <n-output>
+<name file input>
+<name file input>
+<name file output>
+<name file output>
+
+<id task> <n-children>
+<id task>
+<id task>
