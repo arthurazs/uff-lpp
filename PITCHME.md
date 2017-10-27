@@ -11,7 +11,6 @@ Arthur Zopellaro
 +++
 
 ```
-
 $ c++ hea.cpp -o HEA.o -std=c++11
 $ ./HEA.o -w miniworkflow.dag -c cluster.vcl
 
@@ -100,5 +99,17 @@ Best fitness: 13.9833(min) Runtime: 0.931743(sec)
 
 ---
 
+##Conclusion
+
+<br>
+
+| Method | Improved | Runtime |
+| ------ | :------: | :-----: |
+| MPI | True | -1.06s |
+| PThreads | False | +0.30s |
+| Both | True | -0.45s |
+
+---
+
 ## Thank you!
-#### All codes at https://github.com/arthurazs/uff-lpp
+#### https://github.com/arthurazs/uff-lpp
