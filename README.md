@@ -107,4 +107,5 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
 
 ### HEA
 
+Check the [slide](https://gitpitch.com/arthurazs/uff-lpp).
 Refer to each assignment's `run.sh` and `compile.sh`.
