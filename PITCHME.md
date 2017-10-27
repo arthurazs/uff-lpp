@@ -25,7 +25,13 @@ Best fitness: 13.9833(min) Runtime: 1.3814(sec)
 
 +++?code=coursework/assignment3/source/hea.cpp&lang=cpp
 
-@[28-37](EXPLAIN)
+@[525-529](Initialize MPI)
+@[539-544](Calculate local chromosomes)
+@[549-553](Each process send it's best to the master)
+@[556-563](Master receives all bests...)
+@[565-572](and decides which process had the best result)
+@[574-582](The best process will receive TRUE and print its result)
+@[589-602](The best process prints its result)
 
 +++
 
@@ -51,7 +57,12 @@ Best fitness: 13.9833(min) Runtime: 0.319574(sec)
 
 +++?code=coursework/assignment4/source/hea.cpp&lang=cpp
 
-@[28-37](EXPLAIN)
+@[6-13](Declare variables)
+@[546-552](Initialize PThreads)
+@[553-558](Calculate local generations and starts each thread)
+@[380-382](Change function call to suit pthreads)
+@[439-443](Locks the variable to initialize the first run)
+@[462-465](Locks when a improvement was detected)
 
 +++
 
@@ -75,9 +86,9 @@ Best fitness: 13.9833(min) Runtime: 1.68889(sec)
 ## MPI + PThreads
 #### Code
 
-+++?code=coursework/assignment5/source/hea.cpp&lang=cpp
++++
 
-@[28-37](EXPLAIN)
+### Combination of both codes shown before
 
 +++
 
