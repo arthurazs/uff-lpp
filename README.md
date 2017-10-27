@@ -12,7 +12,7 @@ Degree).
 - [Coursework](#coursework)
     - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
     - [Definite Integral (2nd Assignment)](#definite-integral)
-- [TODO](#todo)
+    - [HEA (3rd, 4th and 5th Assignment)](#hea)
 
 ## openmpi
 
@@ -105,24 +105,6 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
     Difference        = 0.00000132368
 
 
-# TODO
+### HEA
 
-improve matrix calc
-
-# mpi + boost
-
-[download](http://www.boost.org/doc/libs/1_65_1/more/getting_started/unix-variants.html), extract, then:
-
-    $ cd path/to/boost_1_65_1
-    $ ./bootstrap.sh --prefix=/home/username/boost
-    $ bjam --with-serialization --with-mpi
-
-to run:
-
-    $ mpic++ -o example example.cpp -std=c++11
-    $ mpirun -n 2 example
-
-if it doesn't work:
-
-    $ mpic++ -o example example.cpp -lboost_mpi -lboost_serialization -std=c++11
-    $ mpirun -n 2 example
+Refer to each assignment's `run.sh` and `compile.sh`.
