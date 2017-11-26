@@ -1,8 +1,8 @@
 # Parallel Programming Lab (UFF)
 
 This repository contains all the assignments implemented for the
-Parallel Programming Lab at the Universidade Federal Fluminense (Master's
-Degree).
+Parallel Programming Lab at the Universidade Federal Fluminense
+(Master's Degree).
 
 **Contents**
 
@@ -12,7 +12,7 @@ Degree).
 - [Coursework](#coursework)
     - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
     - [Definite Integral (2nd Assignment)](#definite-integral)
-    - [HEA (3rd, 4th and 5th Assignment)](#hea)
+    - [Final Project](#final-project)
 
 ## openmpi
 
@@ -36,6 +36,7 @@ Check [teste.c](teste.c) for a simple example:
 
 - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
 - [Definite Integral (2nd Assignment)](#definite-integral)
+- [Final Project](#final-project)
 
 ### Matrix Multiplication
 
@@ -105,7 +106,8 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
     Difference        = 0.00000132368
 
 
-### HEA
+### Final Project
 
 Check the [slide](https://gitpitch.com/arthurazs/uff-lpp).
-Refer to each assignment's `run.sh` and `compile.sh`.
+
+See the [source code](coursework/final_project).

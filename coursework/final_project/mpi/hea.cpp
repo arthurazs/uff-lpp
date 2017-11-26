@@ -1,36 +1,55 @@
 #include <iostream>
+#include <fstream>
 #include "HEFT.h"
 #include "MinMin.h"
 #include <mpi.h>
+
+#define TAGEND 7
+#define TAGBEST 8
+#define TAGCROMO 9
+#define TAGREQ 13
+#define BUFFERSIZE 10000
+#define MAX_TIME 1200 // 20 minutes
+
+void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs, int numThreads);
+int foundSeqGen = -1; // qual geracao ele encontrou o best
+clock_t foundSeqTime; //tempo q encontrou o best
+// int iTotal = 0; //quantidade de geracoes executadas
+int foundMyGen = 0; //Iteracao que foi encontrado o melhor best
+clock_t foundMyTime; //Tempo que foi encontrado o melhor best
+double fitnessSeq = 0; //Melhor best do sequencial
+
+int global_gen_count = 0;
+clock_t begin_time;
 
 typedef vector<Chromosome> vect_chrom_type;
 Data* data;
 
 struct Settings_struct {
-    int num_chromosomes;        // Number of chromosomes
-    int num_generations;        // Number of generations
-    int num_elite_set;          // Max size of Elite-set
+    int num_chromosomes; // Number of chromosomes
+    int num_generations; // Number of generations
+    int num_elite_set; // Max size of Elite-set
 
     float mutation_probability; // Probability of mutation (for each gene)
-    float elitism_rate;  // Rate of generated solutions
+    float elitism_rate; // Rate of generated solutions
     int howMany_elistism;
     float alpha; // percentage of chromosomes send to local search procedures
     float localSearch_probability; // Probability of local search
 
-    float time_limit;                 // Run time limite in seconds
-    int print_gen;                   // What generation will be printed
-    bool verbose, start_heuristic;  // verbose = print type, start_heuristic = Initial Population type
+    float time_limit; // Run time limite in seconds
+    int print_gen; // What generation will be printed
+    bool verbose, start_heuristic; // verbose = print type, start_heuristic = Initial Population type
 
-    long seed;      // Random Seed
+    long seed; // Random Seed
 
     double delta = 0.0; // acceptance criteria for Elite-Set (based on distance)
-    double lambda;  // read and write constant
+    double lambda; // read and write constant
 
     Settings_struct() {
         // Default Settings
-        num_chromosomes = 50;
-        num_generations = 100;
-        num_elite_set = 25;
+        // num_chromosomes = NUM_CHRO;
+        // num_generations = 100;
+        // num_elite_set = num_chromosomes / 2;
 
         mutation_probability = 0.10;
         elitism_rate = 0.10;
@@ -43,16 +62,15 @@ struct Settings_struct {
         verbose = false;
         start_heuristic = true;
 
-        howMany_elistism = (int) ceil(num_chromosomes * elitism_rate);
+        //howMany_elistism = (int) ceil(num_chromosomes * elitism_rate);
 
         lambda = 0.000;
     }
+
 };
 
 
 Settings_struct *setting;
-
-
 
 /*  Call HEFT */
 Chromosome HEFT(Data* data) {
@@ -125,14 +143,14 @@ Chromosome HEFT(Data* data) {
     return heft_chr;
 }
 
-
 /* Call MinMin */
 Chromosome minMinHeuristic(Data* data) {
     list<int> task_list;
     // start task list
     for (auto info : data->task_map)
         task_list.push_back(info.second.id);
-    task_list.sort([&](const int &a, const int &b) { return data->height[a] < data->height[b]; });
+    task_list.sort([&](const int &a, const int &b) {
+        return data->height[a] < data->height[b]; });
 
     list<int> avail_tasks;
 
@@ -144,7 +162,7 @@ Chromosome minMinHeuristic(Data* data) {
 
     //the task_list is sorted by the height(t). While task_list is not empty do
     while (!task_list.empty()) {
-        auto task = task_list.front();//get the first task
+        auto task = task_list.front(); //get the first task
         avail_tasks.clear();
         while (!task_list.empty() && data->height[task] == data->height[task_list.front()]) {
             //build list of ready tasks, that is the tasks which the predecessor was finish
@@ -153,7 +171,7 @@ Chromosome minMinHeuristic(Data* data) {
         }
 
         schedule(data, avail_tasks, ft_vector, queue, file_place, task_ordering,
-                 setting->lambda);//Schedule the ready tasks
+                setting->lambda); //Schedule the ready tasks
     }
 
     Chromosome minMin_chrom(data, setting->lambda);
@@ -203,6 +221,7 @@ Chromosome pathRelinking(vect_chrom_type& Elite_set, const Chromosome &dest, Dat
 }
 
 // Get the best chromosome
+
 inline int getBest(vect_chrom_type& Population) {
     Chromosome* best = &(Population[0]);
     auto pos = 0;
@@ -215,6 +234,7 @@ inline int getBest(vect_chrom_type& Population) {
 }
 
 // Tournament Selection
+
 inline int tournamentSelection(vect_chrom_type& Population) {
     //we pick to chromosomes at random
     int a = random() % Population.size();
@@ -232,6 +252,7 @@ inline int tournamentSelection(vect_chrom_type& Population) {
 // =========== Local search functions  ========= //
 
 // N1 - Swap-vm
+
 inline Chromosome localSearchN1(const Data* data, Chromosome* ch) {
     Chromosome old_ch(ch);
     for (int i = 0; i < data->size; i++) {
@@ -252,6 +273,7 @@ inline Chromosome localSearchN1(const Data* data, Chromosome* ch) {
 }
 
 // N2 - Swap position
+
 inline Chromosome localSearchN2(const Data* data, Chromosome* ch) {
     Chromosome old_ch(ch);
     // for each task, do
@@ -276,6 +298,7 @@ inline Chromosome localSearchN2(const Data* data, Chromosome* ch) {
 }
 
 // N3 = Move-1 Element
+
 inline Chromosome localSearchN3(const Data* data, Chromosome* ch) {
     Chromosome old_ch(ch);
 
@@ -304,13 +327,14 @@ inline void doNextPopulation(vect_chrom_type &Population) {
 
     vector<Chromosome> children_pool;
 
-
     // === do offsprings === //
     for (int i = 0; i < ceil(setting->num_chromosomes / 2.0); i++) {
         // select our two parents with tournament Selection
         int posA, posB;
         posA = tournamentSelection(Population);
-        do { posB = tournamentSelection(Population); } while (posA == posB);
+        do {
+            posB = tournamentSelection(Population);
+        } while (posA == posB);
 
         // get the parents
         auto parentA = Population[posA];
@@ -337,7 +361,7 @@ inline void doNextPopulation(vect_chrom_type &Population) {
     // Elitisme operator - the best is always on the population
     //auto posBest = getBest(children_pool);
     //Population.push_back(children_pool[posBest]);
-    sort(children_pool.begin(), children_pool.end(), [&](const Chromosome &chr1, const Chromosome &chr2) {
+    sort(children_pool.begin(), children_pool.end(), [&](const Chromosome &chr1, const Chromosome & chr2) {
         return chr1.fitness < chr2.fitness;
     });
 
@@ -347,7 +371,7 @@ inline void doNextPopulation(vect_chrom_type &Population) {
     }
 
     // Selected the solutions to build the new population
-    while (Population.size() < static_cast<unsigned int>(setting->num_chromosomes)) {
+    while (Population.size() < static_cast<unsigned int> (setting->num_chromosomes)) {
         auto pos = tournamentSelection(children_pool);
         Population.push_back(Chromosome(children_pool[pos]));
         children_pool.erase(children_pool.begin() + pos);
@@ -356,6 +380,7 @@ inline void doNextPopulation(vect_chrom_type &Population) {
 }
 
 // Call all Local Search Functions
+
 inline void localSearch(vect_chrom_type &Population, Data* data) {
 
     int how_many = setting->alpha * setting->num_chromosomes;
@@ -368,14 +393,14 @@ inline void localSearch(vect_chrom_type &Population, Data* data) {
     }
 }
 
-Chromosome run(string* name_workflow, string* name_cluster)  {
+Chromosome run(string* name_workflow, string* name_cluster, int my_rank, int num_procs) {
 
     // Load input Files and the data structures used by the algorithms
     data = new Data(name_workflow, name_cluster);
 
-
     vector<Chromosome> Population;
     vector<Chromosome> Elite_set;
+    int flag;
 
     // Set Delta
     setting->delta = data->size / 4.0;
@@ -395,10 +420,8 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
     Chromosome minminChr(minMinHeuristic(data));
     Chromosome heftChr(HEFT(data));
 
-
     Population.push_back(minminChr);
     Population.push_back(heftChr);
-
 
     double mut = 0.05;
 
@@ -424,16 +447,28 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
         Population.push_back(Chromosome(data, setting->lambda));
     }
 
-
     // Get best solution from initial population
     Chromosome best(Population[getBest(Population)]);
 
-
     // Do generation
-    int i = 0;
+    int count = 0;
     // start stop clock
 
-    while (i < setting->num_generations) {
+
+    int myEnd = 0;
+    int netEnd = 0;
+    double local_best;
+    int x = 10; //porcetagem de melhora do fitness
+    int interval = 25; //intervalo para atualização periodica
+
+    MPI_Status status;
+
+
+    //sai do while somente quando todas as threads de todos processos
+    //atingirem o numero de geracoes esperado
+    while (netEnd < num_procs) {
+
+        local_best = best.fitness;
 
         // Do local Search ?
 
@@ -455,10 +490,10 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
 
             // Update Elite-set
             if (check_distance(&best, &Elite_set))
-                Elite_set.push_back(best);  // Push all best' solutions on Elite-set
+                Elite_set.push_back(best); // Push all best' solutions on Elite-set
 
             // check elite set size
-            if (Elite_set.size() > static_cast<unsigned int>(setting->num_elite_set))
+            if (Elite_set.size() > static_cast<unsigned int> (setting->num_elite_set))
                 Elite_set.erase(Elite_set.begin());
 
 
@@ -470,17 +505,174 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
 
             Population[pos] = best;
 
-            i = 0;
+            count = 0;
+
+            // my best
+            foundMyGen = global_gen_count;
+            foundMyTime = clock();
         }
 
-        if (setting->verbose && (i % setting->print_gen) == 0)
-            cout << "Gen: " << i << " Fitness: " << best.fitness / 60.0 << "(s)" << endl;
+        if (best.fitness <= fitnessSeq && foundSeqGen == -1) {
+            foundSeqGen = global_gen_count;
+            foundSeqTime = clock();
+        }
 
-        i += 1;
+        //verifica se terminou e indica o fim do processo
+        double time_running = double(clock() - begin_time) / CLOCKS_PER_SEC;
+        if (count == setting->num_generations && myEnd == 0 || time_running > MAX_TIME && myEnd == 0) {
+            myEnd++;
+            netEnd++;
+            for (int i = 0; i < num_procs; i++) {
+                if (i != my_rank) {
+                    MPI_Send(&myEnd, 1, MPI_INT, i, TAGEND, MPI_COMM_WORLD);
+
+                }
+            }
+            if (setting->verbose) {
+                printf(
+                        "|P%d| Generations completed\n",
+                        my_rank);
+            }
+        }
+
+        //troca de mensagens entre processos
+        int position;
+        char buffer[BUFFERSIZE];
+
+        //verifica se tem mensagem de fim de outros processos e recebe
+        do {
+            MPI_Iprobe(MPI_ANY_SOURCE, TAGEND, MPI_COMM_WORLD, &flag, &status);
+            if (flag) {
+                int temp;
+                MPI_Recv(&temp, 1, MPI_INT, MPI_ANY_SOURCE, TAGEND, MPI_COMM_WORLD, &status);
+                netEnd += temp;
+            }
+        } while (flag);
+
+        //envia o best a cada N iterações ou se a solução melhorar > x%
+        if ((global_gen_count % interval == 0) || (((best.fitness / 100) * x) < (local_best - best.fitness))) {
+            for (int i = 0; i < num_procs; i++) {
+                if (i != my_rank) {
+                    MPI_Send(&local_best, 1, MPI_DOUBLE, i, TAGBEST, MPI_COMM_WORLD);
+                }
+            }
+        }
+
+        //verifica se tem mensagem de fitness e recebe
+        //se o fitness recebido for melhor, pede o cromossomo
+        do {
+            MPI_Iprobe(MPI_ANY_SOURCE, TAGBEST, MPI_COMM_WORLD, &flag, &status);
+            if (flag) {
+                double aux_best;
+                MPI_Recv(&aux_best, 1, MPI_DOUBLE, MPI_ANY_SOURCE, TAGBEST, MPI_COMM_WORLD, &status);
+                if (aux_best < best.fitness) {
+                    int aux = 0;
+                    MPI_Send(&aux, 1, MPI_INT, status.MPI_SOURCE, TAGREQ, MPI_COMM_WORLD);
+                }
+            }
+        } while (flag);
+
+        //verifica se tem pedido de cromossomo e envia
+        do {
+            MPI_Iprobe(MPI_ANY_SOURCE, TAGREQ, MPI_COMM_WORLD, &flag, &status);
+            if (flag) {
+                int aux;
+                MPI_Recv(&aux, 1, MPI_INT, MPI_ANY_SOURCE, TAGREQ, MPI_COMM_WORLD, &status);
+
+                //packing
+                position = 0;
+
+                // double
+                MPI_Pack(&best.fitness, 1, MPI_DOUBLE, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(&best.lambda, 1, MPI_DOUBLE, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(&best.transfer_size, 1, MPI_DOUBLE, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+
+                // int vector
+                int alloc_size = best.allocation.size();
+                int height_size = best.height_soft.size();
+                int order_size = best.ordering.size();
+                MPI_Pack(&alloc_size, 1, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(best.allocation.data(), alloc_size, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(&height_size, 1, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(best.height_soft.data(), height_size, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(&order_size, 1, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(best.ordering.data(), order_size, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+
+                // double vector
+                int time_size = best.time_vector.size();
+                int start_size = best.start_time_vector.size();
+                MPI_Pack(&time_size, 1, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(best.time_vector.data(), time_size, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(&start_size, 1, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+                MPI_Pack(best.start_time_vector.data(), start_size, MPI_INT, buffer, BUFFERSIZE, &position, MPI_COMM_WORLD);
+
+                // send pack
+                MPI_Send(buffer, BUFFERSIZE, MPI_PACKED, status.MPI_SOURCE, TAGCROMO, MPI_COMM_WORLD);
+            }
+        } while (flag);
+
+        //TODO
+        do {
+            MPI_Iprobe(MPI_ANY_SOURCE, TAGCROMO, MPI_COMM_WORLD, &flag, &status);
+            if (flag) {
+                //packing
+                position = 0;
+                Chromosome aux;
+                MPI_Recv(&buffer, BUFFERSIZE, MPI_PACKED, MPI_ANY_SOURCE, TAGCROMO, MPI_COMM_WORLD, &status);
+
+                // double
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.fitness, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.lambda, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.transfer_size, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+
+                // int vector
+                int alloc_size;
+                int height_size;
+                int order_size;
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &alloc_size, 1, MPI_INT, MPI_COMM_WORLD);
+                aux.allocation.resize(alloc_size);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.allocation[0], alloc_size, MPI_INT, MPI_COMM_WORLD);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &height_size, 1, MPI_INT, MPI_COMM_WORLD);
+                aux.height_soft.resize(height_size);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.height_soft[0], height_size, MPI_INT, MPI_COMM_WORLD);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &order_size, 1, MPI_INT, MPI_COMM_WORLD);
+                aux.ordering.resize(order_size);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.ordering[0], order_size, MPI_INT, MPI_COMM_WORLD);
+
+                // double vector
+                int time_size;
+                int start_size;
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &time_size, 1, MPI_INT, MPI_COMM_WORLD);
+                aux.time_vector.resize(time_size);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.time_vector[0], time_size, MPI_INT, MPI_COMM_WORLD);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &start_size, 1, MPI_INT, MPI_COMM_WORLD);
+                aux.start_time_vector.resize(start_size);
+                MPI_Unpack(buffer, BUFFERSIZE, &position, &aux.start_time_vector[0], start_size, MPI_INT, MPI_COMM_WORLD);
+
+                if (best.fitness > aux.fitness) {
+                    Population.push_back(aux);
+                    auto pos = getBest(Population);
+                    best = Population[pos];
+                }
+            }
+        } while (flag);
+
+
+        if (setting->verbose && (count % setting->print_gen) == 0) {
+            cout << "|P" << my_rank << "|" << "Gen: " << count << " Fitness: " << best.fitness / 60.0 << "(s)" << endl;
+        }
+
+        count++;
+        global_gen_count++;
 
         doNextPopulation(Population);
-    }
 
+    }
+    if (setting->verbose) {
+        printf(
+                "\n|P%d| Stopping\n",
+                my_rank);
+    }
 
     // return the global best
     return best;
@@ -490,6 +682,7 @@ Chromosome run(string* name_workflow, string* name_cluster)  {
 
 
 // Read command line parameters (input files)
+
 void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster) {
 
     try {
@@ -502,6 +695,14 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
         cmd.add(arg1);
         ValueArg<string> arg2("c", "cluster", "Name of virtual cluster file", true, "file", "string");
         cmd.add(arg2);
+
+        ValueArg<string> arg3("p", "Populacao", "Qtd populacao", true, "file", "string");
+        cmd.add(arg3);
+        ValueArg<string> arg4("g", "Geracoes", "Qtd de Geracoes", true, "file", "string");
+        cmd.add(arg4);
+        ValueArg<string> arg5("b", "Best", "Best", true, "file", "string");
+        cmd.add(arg5);
+
         SwitchArg verbose_arg("v", "verbose", "Output info", cmd, false);
 
         // Parse the args.
@@ -512,11 +713,16 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
         *name_cluster = arg2.getValue();
         setting->verbose = verbose_arg.getValue();
 
-    } catch (ArgException &e) {  // catch any exceptions
+        std::string::size_type sz;
+        setting->num_chromosomes = std::stoi(arg3.getValue(), &sz);
+        setting->num_elite_set = setting->num_chromosomes / 2;
+        setting->num_generations = std::stoi(arg4.getValue(), &sz);
+        fitnessSeq = std::stod(arg5.getValue(), &sz);
+
+    } catch (ArgException &e) { // catch any exceptions
         cerr << "error: " << e.error() << " for arg " << e.argId() << endl;
     }
 }
-
 
 int main(int argc, char **argv) {
 
@@ -529,6 +735,9 @@ int main(int argc, char **argv) {
     MPI_Comm_size(world, &numprocs);
 
     clock_t begin = clock();
+    begin_time = clock();
+    foundSeqTime = begin;
+    foundMyTime = begin;
 
     string name_workflow, name_cluster;
 
@@ -536,46 +745,42 @@ int main(int argc, char **argv) {
 
     setupCmd(argc, argv, &name_workflow, &name_cluster);
 
-    int local_chromosomes = setting->num_chromosomes / numprocs;
-    int local_rest = setting->num_chromosomes % numprocs;
-    if(local_rest > rank)
-        local_chromosomes++;
+    setting->num_chromosomes = setting->num_chromosomes / numprocs;
+    setting->num_elite_set = setting->num_chromosomes / 2;
+    setting->howMany_elistism = (int) ceil(setting->num_chromosomes * setting->elitism_rate);
 
-    setting->num_chromosomes = local_chromosomes;
-
-    Chromosome best = run(&name_workflow, &name_cluster);
+    Chromosome best = run(&name_workflow, &name_cluster, rank, numprocs);
     best.computeFitness(true, true);
 
     int printing = false;
 
-    if(rank != master) {
+    if (rank != master) {
         MPI_Send(&best.fitness, 1, MPI_DOUBLE, master, tag, world);
-    }
-    else {
+    } else {
 
         // Compare all fitnesses
         double fitnesses[numprocs];
         fitnesses[master] = best.fitness;
-        for (int i = 1; i<numprocs;i++) {
+        for (int i = 1; i < numprocs; i++) {
             double local;
             MPI_Recv(&local, 1, MPI_DOUBLE, MPI_ANY_SOURCE, tag, world, &status);
             fitnesses[status.MPI_SOURCE] = local;
         }
 
-        double global_best = fitnesses[master];
+        double global_best_fitness = fitnesses[master];
         int global_position = master;
         for (int i = 0; i < numprocs; i++) {
-            if (fitnesses[i] < global_best) {
-                global_best = fitnesses[i];
+            if (fitnesses[i] < global_best_fitness) {
+                global_best_fitness = fitnesses[i];
                 global_position = i;
             }
         }
 
         for (int i = 1; i < numprocs; i++) {
-            printing = false;
+            bool printing_local = false;
             if (i == global_position)
-                printing = true;
-            MPI_Send(&printing, 1, MPI_INT, i, tag, world);
+                printing_local = true;
+            MPI_Send(&printing_local, 1, MPI_INT, i, tag, world);
         }
 
         if (global_position == master)
@@ -587,21 +792,27 @@ int main(int argc, char **argv) {
     }
 
     if (printing == true) {
-
         clock_t end = clock();
 
         double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
 
-        if (setting->verbose){
+        if (setting->verbose) {
             cout << "\t **** HEA **** " << endl;
             best.print();
+            printf("\n");
         }
 
-        cout << "Best fitness found by rank: " << rank << endl;
+        double elapseTimeFoundSecs = double(foundSeqTime - begin) / CLOCKS_PER_SEC;
+        double elapseMyTimeFoundSecs = double(foundMyTime - begin) / CLOCKS_PER_SEC;
+        printResult(name_workflow, best.fitness, foundSeqGen, elapseTimeFoundSecs, global_gen_count, elapseSecs, setting->num_chromosomes, setting->num_elite_set, setting->num_generations, foundMyGen, elapseMyTimeFoundSecs, numprocs, 1);
+
+        if (setting->verbose) {
+            cout << "Best fitness found by rank: " << rank << endl;
+        }
         cout << "Best fitness: " << best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
     }
 
-	delete data;
+    delete data;
     //delete setting struct
     delete[] setting;
 
@@ -609,3 +820,12 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs = 1, int numThreads = 1) {
+
+    std::ofstream out;
+    out.open("csv/mpi.csv", std::ios::app);
+    // Arquivo;Processos;Threads;Fitness (Sequencial);Geração (Sequencial);Tempo (Sequencial);Fitness (Meu);Geração (Meu);Tempo (Meu);Gerações (Total);Tempo (Total);Cromossomos;Conjunto Elite;Mínimo de Gerações
+    out << arquivo << ";" << numProcs << ';' << numThreads << ';' << fitnessSeq << ";" << found << ';' << time_found << ';' << fitness << ';' << foundMyGen << ";" << foundMyTime << ";" << total << ';' << time << ';' << num_chromosomes << ';' << num_elite_set << ';' << num_generations << "\n";
+    out.close();
+
+}

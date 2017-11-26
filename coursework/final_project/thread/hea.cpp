@@ -1,16 +1,34 @@
 #include <iostream>
+#include <fstream>
 #include "HEFT.h"
 #include "MinMin.h"
-#include <pthread.h>
 
-#define NTHREADS 3
+#define NTHREADS 2
+#define MAX_TIME 5 // 20 minutes
+
+void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs, int numThreads);
+
+clock_t begin_time;
+
+int foundSeqGen = -1; // qual geracao ele encontrou o best
+clock_t foundSeqTime; //tempo q encontrou o best
+// int iTotal = 0; //quantidade de geracoes executadas
+int foundMyGen = 0; //Iteracao que foi encontrado o melhor best
+clock_t foundMyTime; //Tempo que foi encontrado o melhor best
+double fitnessSeq = 0; //Melhor best do sequencial
+
 Chromosome global_best;
+int threadEnd = 0;
+int global_gen_count = 0;
+int found_gen = 0;
 struct arg_struct {
     string* name_workflow;
     string* name_cluster;
-    int local_generations;
+    int my_thread_id;
 };
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexBest = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexThreadEnd = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexCount = PTHREAD_MUTEX_INITIALIZER;
 
 typedef vector<Chromosome> vect_chrom_type;
 Data* data;
@@ -37,9 +55,9 @@ struct Settings_struct {
 
     Settings_struct() {
         // Default Settings
-        num_chromosomes = 50;
+        // num_chromosomes = num_chromosomes / NTHREADS;
         num_generations = 100;
-        num_elite_set = 25;
+        // num_elite_set = num_chromosomes / 2;
 
         mutation_probability = 0.10;
         elitism_rate = 0.10;
@@ -56,6 +74,7 @@ struct Settings_struct {
 
         lambda = 0.000;
     }
+
 };
 
 
@@ -313,7 +332,6 @@ inline void doNextPopulation(vect_chrom_type &Population) {
 
     vector<Chromosome> children_pool;
 
-
     // === do offsprings === //
     for (int i = 0; i < ceil(setting->num_chromosomes / 2.0); i++) {
         // select our two parents with tournament Selection
@@ -384,9 +402,11 @@ void *run(void *arguments)  {
     // Load input Files and the data structures used by the algorithms
     data = new Data(args->name_workflow, args->name_cluster);
 
+	clock_t thread_time = clock();
 
     vector<Chromosome> Population;
     vector<Chromosome> Elite_set;
+    int flag;
 
     // Set Delta
     setting->delta = data->size / 4.0;
@@ -406,10 +426,8 @@ void *run(void *arguments)  {
     Chromosome minminChr(minMinHeuristic(data));
     Chromosome heftChr(HEFT(data));
 
-
     Population.push_back(minminChr);
     Population.push_back(heftChr);
-
 
     double mut = 0.05;
 
@@ -437,17 +455,27 @@ void *run(void *arguments)  {
 
 
     // Get best solution from initial population
-    pthread_mutex_lock( &mutex );
+    pthread_mutex_lock( &mutexBest );
     if (global_best.fitness == 0)
         global_best = Population[getBest(Population)];
-    pthread_mutex_unlock( &mutex );
-
+    pthread_mutex_unlock( &mutexBest );
 
     // Do generation
-    int i = 0;
+    int count = 0;
     // start stop clock
 
-    while (i < args->local_generations) {
+
+    int myEnd = 0;
+    pthread_mutex_lock( &mutexThreadEnd );
+    int threadEndAux = threadEnd;
+    pthread_mutex_unlock( &mutexThreadEnd );
+    bool stop = false;
+    int x = 10;         //porcetagem de melhora do fitness
+    int interval = 25;  //intervalo para atualização periodica
+
+    //sai do while somente quando todas as threads de todos processos
+    //atingirem o numero de geracoes esperado
+    while (threadEndAux < NTHREADS) {
 
         // Do local Search ?
 
@@ -459,7 +487,7 @@ void *run(void *arguments)  {
         // Update best
         auto pos = getBest(Population);
 
-        pthread_mutex_lock( &mutex );
+        pthread_mutex_lock( &mutexBest );
         if (global_best.fitness > Population[pos].fitness) {
 
             global_best = Population[pos];
@@ -485,16 +513,68 @@ void *run(void *arguments)  {
 
             Population[pos] = global_best;
 
-            i = 0;
+            count = 0;
+
+            // my best
+            pthread_mutex_lock( &mutexCount );
+            foundMyGen = global_gen_count;
+            pthread_mutex_unlock( &mutexCount );
+            foundMyTime = clock();
         }
-        pthread_mutex_unlock( &mutex );
 
-        if (setting->verbose && (i % setting->print_gen) == 0)
-            cout << "Gen: " << i << " Fitness: " << global_best.fitness / 60.0 << "(s)" << endl;
+        if(global_best.fitness <= fitnessSeq && foundSeqGen == -1) {
+            pthread_mutex_lock( &mutexCount );
+            foundSeqGen = global_gen_count;
+            pthread_mutex_unlock( &mutexCount );
+            foundSeqTime = clock();
+        }
+        pthread_mutex_unlock( &mutexBest );
 
-        i += 1;
+        //verifica se terminou e indica o fim da thread
+        double time_running = double(clock() - thread_time) / CLOCKS_PER_SEC;
+        if(count == setting->num_generations && myEnd == 0 || time_running > MAX_TIME && myEnd == 0){
+            myEnd++;
+            pthread_mutex_lock( &mutexThreadEnd );
+            threadEnd++;
+            threadEndAux = threadEnd;
+            pthread_mutex_unlock( &mutexThreadEnd );
+            if(setting->verbose) {
+                printf("|T%d| Generations completed\n", args->my_thread_id);
+            }
+        }
+
+        //troca de mensagens entre processos (atraves da thread 0)
+        if(args->my_thread_id == 0){
+
+            //verifica se TODAS threads terminaram e avisa os outros processos
+            //"stop" para executar esse envio apenas UMA vez
+            if(stop == false && threadEndAux == NTHREADS){
+                stop = true;
+                if(setting->verbose) {
+                    printf("All threads are completed\n");
+                }
+            }
+        }
+
+        if (setting->verbose && (count % setting->print_gen) == 0) {
+            pthread_mutex_lock( &mutexBest );
+            cout << "|T" << args->my_thread_id << "|" << "Gen: " << count << " Fitness: " << global_best.fitness / 60.0 << "(s)" << endl;
+            pthread_mutex_unlock( &mutexBest );
+        }
+
+        count++;
+        pthread_mutex_lock( &mutexCount );
+        global_gen_count++;
+        pthread_mutex_unlock( &mutexCount );
 
         doNextPopulation(Population);
+
+        pthread_mutex_lock( &mutexThreadEnd );
+        threadEndAux = threadEnd;
+        pthread_mutex_unlock( &mutexThreadEnd );
+    }
+    if(setting->verbose) {
+        printf("\n|T%d| Stopping\n", args->my_thread_id);
     }
 
     // return the global best
@@ -517,6 +597,14 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
         cmd.add(arg1);
         ValueArg<string> arg2("c", "cluster", "Name of virtual cluster file", true, "file", "string");
         cmd.add(arg2);
+
+        ValueArg<string> arg3("p", "Populacao", "Qtd populacao", true, "file", "string");
+        cmd.add(arg3);
+        ValueArg<string> arg4("g", "Geracoes", "Qtd de Geracoes", true, "file", "string");
+        cmd.add(arg4);
+        ValueArg<string> arg5("b", "Best", "Best", true, "file", "string");
+        cmd.add(arg5);
+
         SwitchArg verbose_arg("v", "verbose", "Output info", cmd, false);
 
         // Parse the args.
@@ -527,6 +615,13 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
         *name_cluster = arg2.getValue();
         setting->verbose = verbose_arg.getValue();
 
+        std::string::size_type sz;
+        setting->num_chromosomes = std::stoi (arg3.getValue(),&sz);
+        setting->num_chromosomes = setting->num_chromosomes / NTHREADS;
+        setting->num_elite_set = setting->num_chromosomes / 2;
+        setting->num_generations = std::stoi (arg4.getValue(),&sz);
+        fitnessSeq = std::stod(arg5.getValue(), &sz);
+
     } catch (ArgException &e) {  // catch any exceptions
         cerr << "error: " << e.error() << " for arg " << e.argId() << endl;
     }
@@ -535,7 +630,9 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
 
 int main(int argc, char **argv) {
 
-    clock_t begin = clock();
+    begin_time = clock();
+    foundSeqTime = begin_time;
+    foundMyTime = begin_time;
 
     string name_workflow, name_cluster;
 
@@ -543,16 +640,15 @@ int main(int argc, char **argv) {
 
     setupCmd(argc, argv, &name_workflow, &name_cluster);
 
-    // Thread
-    int local_generations = setting->num_generations / NTHREADS;
     // int local_rest = setting->num_generations % NTHREADS; // FIXME
     pthread_t thread[NTHREADS];
-    struct arg_struct args;
-    args.name_workflow = &name_workflow;
-    args.name_cluster = &name_cluster;
+    struct arg_struct args[NTHREADS];
+
     for(int i=0; i < NTHREADS; i++){
-        args.local_generations = local_generations;
-        pthread_create(&thread[i], NULL, run, (void *)&args);
+        args[i].name_workflow = &name_workflow;
+        args[i].name_cluster = &name_cluster;
+        args[i].my_thread_id = i;
+        pthread_create(&thread[i], NULL, run, (void *)&args[i]);
     }
     for(int i=0; i < NTHREADS; i++)
         pthread_join(thread[i], NULL);
@@ -561,20 +657,34 @@ int main(int argc, char **argv) {
 
     clock_t end = clock();
 
-    double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
+    double elapseSecs = double(end - begin_time) / CLOCKS_PER_SEC;
 
     if (setting->verbose){
         cout << "\t **** HEA **** " << endl;
         global_best.print();
+        printf("\n");
     }
 
+    double elapseTimeFoundSecs = double(foundSeqTime - begin_time )/CLOCKS_PER_SEC;
+    double elapseMyTimeFoundSecs = double(foundMyTime - begin_time )/CLOCKS_PER_SEC;
+    printResult(name_workflow, global_best.fitness, foundSeqGen, elapseTimeFoundSecs, global_gen_count, elapseSecs, setting->num_chromosomes, setting->num_elite_set, setting->num_generations, foundMyGen, elapseMyTimeFoundSecs, 1, NTHREADS);
 
     cout << "Best fitness: " << global_best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
 
-
-	delete data;
+    delete data;
     //delete setting struct
     delete[] setting;
+
     return 0;
 }
 
+void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs = 1, int numThreads = 1)
+{
+
+    std::ofstream out;
+    out.open("csv/thread.csv", std::ios::app);
+    // Arquivo;Processos;Threads;Fitness (Sequencial);Geração (Sequencial);Tempo (Sequencial);Fitness (Meu);Geração (Meu);Tempo (Meu);Gerações (Total);Tempo (Total);Cromossomos;Conjunto Elite;Mínimo de Gerações
+    out << arquivo << ";" << numProcs << ';' << numThreads << ';' << fitnessSeq << ";" << found << ';' << time_found << ';' << fitness << ';' << foundMyGen << ";" << foundMyTime << ";" << total << ';' << time << ';' << num_chromosomes << ';' << num_elite_set << ';' << num_generations << "\n";
+    out.close();
+
+}

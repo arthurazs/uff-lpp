@@ -58,7 +58,6 @@ public:
             lambda(other->lambda), transfer_size(other->transfer_size), data(other->data),
             scheduler(other->scheduler), vm_queue(other->vm_queue) {}
 
-
     Chromosome() {}
 
 
