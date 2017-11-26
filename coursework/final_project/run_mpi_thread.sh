@@ -36,7 +36,7 @@ do
             for TEST_NUMBER in 1 2 3 4 5
             do
                 echo -n "${PRINT_TEXT} | $TEST_NUMBER/5: "
-                /opt/openmpi-2.1.1/bin/mpirun -n 4 --machinefile machines bin/HEA_mpi_thread.o -c cluster/cluster.vcl -w "${FILENAME}" -p "${POPULATION}" -g 100 -b "${BEST}"
+                mpirun -n 4 --machinefile machines bin/HEA_mpi_thread.o -c cluster/cluster.vcl -w "${FILENAME}" -p "${POPULATION}" -g 100 -b "${BEST}"
             done
             echo "${PRINT_TEXT} END"
             date
