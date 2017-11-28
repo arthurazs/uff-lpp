@@ -12,7 +12,12 @@ Parallel Programming Lab at the Universidade Federal Fluminense
 - [Coursework](#coursework)
     - [Matrix Multiplication (1st Assignment)](#matrix-multiplication)
     - [Definite Integral (2nd Assignment)](#definite-integral)
-    - [Final Project](#final-project)
+    - [Final Project (HEA)](#final-project)
+        - [PThreads](#pthreads)
+        - [OpenMP](#openmp)
+        - [MPI](#mpi)
+        - [MPI + PThreads](#mpi-pthreads)
+        - [MPI + OpenMP](#mpi-openmp)
 
 ## openmpi
 
@@ -108,6 +113,31 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
 
 ### Final Project
 
-Check the [slide](https://gitpitch.com/arthurazs/uff-lpp).
+[HEA](https://github.com/luanteylo/HEA) is a Hybrid Evolutionary Algorithm by [Luan Teylo](https://github.com/luanteylo) developed to solve the problem of task scheduling and data allocations for scientific workflows. HEA is a linear code with many heavy computational algorithms, meaning it may be slow to solve big problems. This Final Project's aim is to study HEA's linear code, implement several parallelism techniques and compare its performance.
 
-See the [source code](coursework/final_project).
+[HEA's linear code](https://github.com/luanteylo/HEA/blob/master/source/hea.cpp) performance was compared with
+[PThreads](#pthreads),
+[OpenMP](#openmp),
+[MPI](#mpi) and a combination of
+[MPI + PThreads](#mpi-openmp) and
+[MPI + OpenMP](#mpi-pthreads).
+
+You can check the presentation's slide SOON.
+
+#### PThreads
+
+#### OpenMP
+
+#### MPI
+
+#### MPI + PThreads
+
+#### MPI + OpenMP
+
+## Authors
+
+- Matrix Multiplication & Definite Integral
+    - [Arthur Zopellaro](https://github.com/arthurazs)
+- Final Project
+    - [Arthur Zopellaro](https://github.com/arthurazs)
+    - Marcos Melos
