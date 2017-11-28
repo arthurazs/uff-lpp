@@ -1,7 +1,7 @@
 #include <iostream>
-#include <fstream>
 #include "HEFT.h"
 #include "MinMin.h"
+#include <omp.h>
 
 #define NTHREADS 2
 #define MAX_TIME 1200 // 20 minutes
@@ -17,18 +17,7 @@ int foundMyGen = 0; //Iteracao que foi encontrado o melhor best
 clock_t foundMyTime; //Tempo que foi encontrado o melhor best
 double fitnessSeq = 0; //Melhor best do sequencial
 
-Chromosome global_best;
-int threadEnd = 0;
 int global_gen_count = 0;
-int found_gen = 0;
-struct arg_struct {
-    string* name_workflow;
-    string* name_cluster;
-    int my_thread_id;
-};
-pthread_mutex_t mutexBest = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutexThreadEnd = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutexCount = PTHREAD_MUTEX_INITIALIZER;
 
 typedef vector<Chromosome> vect_chrom_type;
 Data* data;
@@ -55,9 +44,9 @@ struct Settings_struct {
 
     Settings_struct() {
         // Default Settings
-        // num_chromosomes = num_chromosomes / NTHREADS;
-        num_generations = 100;
-        // num_elite_set = num_chromosomes / 2;
+        // num_chromosomes = 50;
+        // num_generations = 100;
+        // num_elite_set = 25;
 
         mutation_probability = 0.10;
         elitism_rate = 0.10;
@@ -70,11 +59,10 @@ struct Settings_struct {
         verbose = false;
         start_heuristic = true;
 
-        howMany_elistism = (int) ceil(num_chromosomes * elitism_rate);
+        // howMany_elistism = (int) ceil(num_chromosomes * elitism_rate);
 
         lambda = 0.000;
     }
-
 };
 
 
@@ -209,6 +197,7 @@ Chromosome pathRelinking(vect_chrom_type& Elite_set, const Chromosome &dest, Dat
     Chromosome best(dest);
 
     // For each chromosome on Elite Set, do:
+    #pragma omp parallel for
     for (unsigned i = 0; i < Elite_set.size(); i++) {
         auto src = Elite_set[i];
 
@@ -220,8 +209,11 @@ Chromosome pathRelinking(vect_chrom_type& Elite_set, const Chromosome &dest, Dat
             if (src.allocation[el] != dest.allocation[el]) {
                 src.allocation[el] = dest.allocation[el];
                 src.computeFitness(true, true);
-                if (best.fitness > src.fitness)
-                    best = src;
+                #pragma omp critical
+                {
+                    if (best.fitness > src.fitness)
+                        best = src;
+                }
             }
         }
     }
@@ -262,6 +254,7 @@ inline int tournamentSelection(vect_chrom_type& Population) {
 // N1 - Swap-vm
 inline Chromosome localSearchN1(const Data* data, Chromosome* ch) {
     Chromosome old_ch(ch);
+
     for (int i = 0; i < data->size; i++) {
         for (int j = i + 1; j < data->size; j++) {
             if (ch->allocation[i] != ch->allocation[j]) {
@@ -331,8 +324,12 @@ inline void doNextPopulation(vect_chrom_type &Population) {
     //int how_many =  (int) ceil(setting->num_chromosomes * setting->elitism_rate);
 
     vector<Chromosome> children_pool;
+    // children_pool.resize(ceil(setting->num_chromosomes / 2.0));
+
 
     // === do offsprings === //
+    // #pragma omp parallel for
+    // for (int i = 0; i < children_pool.size(); i++) {
     for (int i = 0; i < ceil(setting->num_chromosomes / 2.0); i++) {
         // select our two parents with tournament Selection
         int posA, posB;
@@ -351,11 +348,19 @@ inline void doNextPopulation(vect_chrom_type &Population) {
         child.computeFitness();
         // Add solution on children_pool
         children_pool.push_back(child);
+        // children_pool[i] = child;
     }
 
     // === update population === //
 
     // add all solutions to the children_pool
+    // int aux_size = children_pool.size();
+    // children_pool.resize(aux_size + Population.size());
+    // #pragma omp parallel for
+    // for (int i = 0; i < Population.size(); ++i)
+    // {
+    //     children_pool[i+aux_size] = Population[i];
+    // }
     children_pool.insert(children_pool.end(), Population.begin(), Population.end());
 
     // Delete old population
@@ -387,26 +392,27 @@ inline void localSearch(vect_chrom_type &Population, Data* data) {
 
     int how_many = setting->alpha * setting->num_chromosomes;
 
+    // #pragma omp parallel for
     for (int j = 0; j < how_many; j++) {
-        auto ch_pos = tournamentSelection(Population);
+        // int ch_pos = j;
+        int ch_pos = tournamentSelection(Population);
         Population[ch_pos] = localSearchN1(data, &Population[ch_pos]);
         Population[ch_pos] = localSearchN2(data, &Population[ch_pos]);
         Population[ch_pos] = localSearchN3(data, &Population[ch_pos]);
     }
 }
 
-void *run(void *arguments)  {
-
-    struct arg_struct *args = (struct arg_struct *) arguments;
+Chromosome run(string* name_workflow, string* name_cluster)  {
 
     // Load input Files and the data structures used by the algorithms
-    data = new Data(args->name_workflow, args->name_cluster);
-
-	clock_t thread_time = clock();
+    data = new Data(name_workflow, name_cluster);
 
     vector<Chromosome> Population;
+    int aux_size = (ceil(setting->num_chromosomes * 0.9) * 2) + ceil(setting->num_chromosomes * 0.1) + 2;
+    Population.resize(aux_size);
+
     vector<Chromosome> Elite_set;
-    int flag;
+
 
     // Set Delta
     setting->delta = data->size / 4.0;
@@ -426,56 +432,58 @@ void *run(void *arguments)  {
     Chromosome minminChr(minMinHeuristic(data));
     Chromosome heftChr(HEFT(data));
 
-    Population.push_back(minminChr);
-    Population.push_back(heftChr);
 
-    double mut = 0.05;
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        {
+            Population[0] = minminChr;
+            Population[1] = heftChr;
+        }
+        #pragma omp section
+        {
+            int aux_first = 2;
+            int aux_last = (ceil(setting->num_chromosomes * 0.9) * 2) + aux_first;
 
-    // 90% using the mutate procedure with variation
-    for (int i = 0; i < ceil(setting->num_chromosomes * 0.9); i++) {
-        Chromosome chr1(minminChr);
-        chr1.mutate(mut);
-        chr1.computeFitness();
+            double mut = 0.05;
 
-        Chromosome chr2(heftChr);
-        chr2.mutate(mut);
-        chr2.computeFitness();
+            // 90% using the mutate procedure with variation
+            for (int i = aux_first; i < aux_last; i+=2) {
+                Chromosome chr1(minminChr);
+                chr1.mutate(mut);
+                chr1.computeFitness();
 
-        Population.push_back(chr1);
-        Population.push_back(chr2);
+                Chromosome chr2(heftChr);
+                chr2.mutate(mut);
+                chr2.computeFitness();
 
-        mut = mut > 1.0 ? 0.05 : mut + 0.05;
+                Population[i] = chr1;
+                Population[i+1] = chr2;
+
+                mut = mut > 1.0 ? 0.05 : mut + 0.05;
+            }
+        }
+        #pragma omp section
+        {
+            int aux_first = (ceil(setting->num_chromosomes * 0.9) * 2) + 2;
+            int aux_last = ceil(setting->num_chromosomes * 0.10) + aux_first;
+
+            // 10% random solutions
+            for (int i = aux_first; i < aux_last; i++) {
+                Population[i] = Chromosome(data, setting->lambda);
+            }
+        }
     }
-
-
-    // 10% random solutions
-    for (int i = 0; i < (setting->num_chromosomes * 0.10); i++) {
-        Population.push_back(Chromosome(data, setting->lambda));
-    }
-
 
     // Get best solution from initial population
-    pthread_mutex_lock( &mutexBest );
-    if (global_best.fitness == 0)
-        global_best = Population[getBest(Population)];
-    pthread_mutex_unlock( &mutexBest );
+    Chromosome best(Population[getBest(Population)]);
 
     // Do generation
-    int count = 0;
+    int i = 0;
     // start stop clock
+    bool myEnd = false;
 
-
-    int myEnd = 0;
-    pthread_mutex_lock( &mutexThreadEnd );
-    int threadEndAux = threadEnd;
-    pthread_mutex_unlock( &mutexThreadEnd );
-    bool stop = false;
-    int x = 10;         //porcetagem de melhora do fitness
-    int interval = 25;  //intervalo para atualização periodica
-
-    //sai do while somente quando todas as threads de todos processos
-    //atingirem o numero de geracoes esperado
-    while (threadEndAux < NTHREADS) {
+    while (!myEnd) {
 
         // Do local Search ?
 
@@ -487,18 +495,17 @@ void *run(void *arguments)  {
         // Update best
         auto pos = getBest(Population);
 
-        pthread_mutex_lock( &mutexBest );
-        if (global_best.fitness > Population[pos].fitness) {
+        if (best.fitness > Population[pos].fitness) {
 
-            global_best = Population[pos];
+            best = Population[pos];
 
             // Apply path Relinking
             if (!Elite_set.empty())
-                global_best = pathRelinking(Elite_set, global_best, data);
+                best = pathRelinking(Elite_set, best, data);
 
             // Update Elite-set
-            if (check_distance(&global_best, &Elite_set))
-                Elite_set.push_back(global_best);  // Push all best' solutions on Elite-set
+            if (check_distance(&best, &Elite_set))
+                Elite_set.push_back(best);  // Push all best' solutions on Elite-set
 
             // check elite set size
             if (Elite_set.size() > static_cast<unsigned int>(setting->num_elite_set))
@@ -507,78 +514,42 @@ void *run(void *arguments)  {
 
             // Apply Local Search
 
-            global_best = localSearchN1(data, &global_best);
-            global_best = localSearchN2(data, &global_best);
-            global_best = localSearchN3(data, &global_best);
+            best = localSearchN1(data, &best);
+            best = localSearchN2(data, &best);
+            best = localSearchN3(data, &best);
 
-            Population[pos] = global_best;
+            Population[pos] = best;
 
-            count = 0;
+            i = 0;
 
             // my best
-            pthread_mutex_lock( &mutexCount );
             foundMyGen = global_gen_count;
-            pthread_mutex_unlock( &mutexCount );
             foundMyTime = clock();
         }
 
-        if(global_best.fitness <= fitnessSeq && foundSeqGen == -1) {
-            pthread_mutex_lock( &mutexCount );
+        if (best.fitness <= fitnessSeq && foundSeqGen == -1) {
             foundSeqGen = global_gen_count;
-            pthread_mutex_unlock( &mutexCount );
             foundSeqTime = clock();
         }
-        pthread_mutex_unlock( &mutexBest );
 
-        //verifica se terminou e indica o fim da thread
-        double time_running = double(clock() - thread_time) / CLOCKS_PER_SEC;
-        if(count == setting->num_generations && myEnd == 0 || time_running > MAX_TIME && myEnd == 0){
-            myEnd++;
-            pthread_mutex_lock( &mutexThreadEnd );
-            threadEnd++;
-            threadEndAux = threadEnd;
-            pthread_mutex_unlock( &mutexThreadEnd );
-            if(setting->verbose) {
-                printf("|T%d| Generations completed\n", args->my_thread_id);
-            }
+        //verifica se terminou e indica o fim do processo
+        double time_running = double(clock() - begin_time) / CLOCKS_PER_SEC;
+        if (i == setting->num_generations || time_running > MAX_TIME) {
+            myEnd = true;
         }
 
-        //troca de mensagens entre processos (atraves da thread 0)
-        if(args->my_thread_id == 0){
+        if (setting->verbose && (i % setting->print_gen) == 0)
+            cout << "Gen: " << i << " Fitness: " << best.fitness / 60.0 << "(s)" << endl;
 
-            //verifica se TODAS threads terminaram e avisa os outros processos
-            //"stop" para executar esse envio apenas UMA vez
-            if(stop == false && threadEndAux == NTHREADS){
-                stop = true;
-                if(setting->verbose) {
-                    printf("All threads are completed\n");
-                }
-            }
-        }
-
-        if (setting->verbose && (count % setting->print_gen) == 0) {
-            pthread_mutex_lock( &mutexBest );
-            cout << "|T" << args->my_thread_id << "|" << "Gen: " << count << " Fitness: " << global_best.fitness / 60.0 << "(s)" << endl;
-            pthread_mutex_unlock( &mutexBest );
-        }
-
-        count++;
-        pthread_mutex_lock( &mutexCount );
+        i++;
         global_gen_count++;
-        pthread_mutex_unlock( &mutexCount );
 
         doNextPopulation(Population);
+    }
 
-        pthread_mutex_lock( &mutexThreadEnd );
-        threadEndAux = threadEnd;
-        pthread_mutex_unlock( &mutexThreadEnd );
-    }
-    if(setting->verbose) {
-        printf("\n|T%d| Stopping\n", args->my_thread_id);
-    }
 
     // return the global best
-    // return best;
+    return best;
 }
 
 
@@ -616,10 +587,9 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
         setting->verbose = verbose_arg.getValue();
 
         std::string::size_type sz;
-        setting->num_chromosomes = std::stoi (arg3.getValue(),&sz);
-        setting->num_chromosomes = setting->num_chromosomes / NTHREADS;
+        setting->num_chromosomes = std::stoi(arg3.getValue(), &sz);
         setting->num_elite_set = setting->num_chromosomes / 2;
-        setting->num_generations = std::stoi (arg4.getValue(),&sz);
+        setting->num_generations = std::stoi(arg4.getValue(), &sz);
         fitnessSeq = std::stod(arg5.getValue(), &sz);
 
     } catch (ArgException &e) {  // catch any exceptions
@@ -630,61 +600,51 @@ void setupCmd(int argc, char **argv, string* name_workflow, string* name_cluster
 
 int main(int argc, char **argv) {
 
-    begin_time = clock();
-    foundSeqTime = begin_time;
-    foundMyTime = begin_time;
+    clock_t begin = clock();
+
+    omp_set_dynamic(0);
+    omp_set_num_threads(NTHREADS);
 
     string name_workflow, name_cluster;
 
     setting = new Settings_struct();
 
+    // setting->num_chromosomes = setting->num_chromosomes / numprocs;
+    // setting->num_elite_set = setting->num_chromosomes / 2;
     setting->howMany_elistism = (int) ceil(setting->num_chromosomes * setting->elitism_rate);
 
     setupCmd(argc, argv, &name_workflow, &name_cluster);
 
-    // int local_rest = setting->num_generations % NTHREADS; // FIXME
-    pthread_t thread[NTHREADS];
-    struct arg_struct args[NTHREADS];
+    auto best = run(&name_workflow, &name_cluster);
 
-    for(int i=0; i < NTHREADS; i++){
-        args[i].name_workflow = &name_workflow;
-        args[i].name_cluster = &name_cluster;
-        args[i].my_thread_id = i;
-        pthread_create(&thread[i], NULL, run, (void *)&args[i]);
-    }
-    for(int i=0; i < NTHREADS; i++)
-        pthread_join(thread[i], NULL);
-
-    global_best.computeFitness(true, true);
+    best.computeFitness(true, true);
 
     clock_t end = clock();
 
-    double elapseSecs = double(end - begin_time) / CLOCKS_PER_SEC;
+    double elapseSecs = double(end - begin) / CLOCKS_PER_SEC;
 
     if (setting->verbose){
         cout << "\t **** HEA **** " << endl;
-        global_best.print();
-        printf("\n");
+        best.print();
     }
 
-    double elapseTimeFoundSecs = double(foundSeqTime - begin_time )/CLOCKS_PER_SEC;
-    double elapseMyTimeFoundSecs = double(foundMyTime - begin_time )/CLOCKS_PER_SEC;
-    printResult(name_workflow, global_best.fitness, foundSeqGen, elapseTimeFoundSecs, global_gen_count, elapseSecs, setting->num_chromosomes, setting->num_elite_set, setting->num_generations, foundMyGen, elapseMyTimeFoundSecs, 1, NTHREADS);
+    double elapseTimeFoundSecs = double(foundSeqTime - begin) / CLOCKS_PER_SEC;
+    double elapseMyTimeFoundSecs = double(foundMyTime - begin) / CLOCKS_PER_SEC;
+    printResult(name_workflow, best.fitness, foundSeqGen, elapseTimeFoundSecs, global_gen_count, elapseSecs, setting->num_chromosomes, setting->num_elite_set, setting->num_generations, foundMyGen, elapseMyTimeFoundSecs, 1, 1);
 
-    cout << "Best fitness: " << global_best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
+    cout << "Best fitness: " << best.fitness / 60.0 << "(min)" << " Runtime: " << elapseSecs << "(sec)" << endl;
+
 
     delete data;
     //delete setting struct
     delete[] setting;
-
     return 0;
 }
 
-void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs = 1, int numThreads = 1)
-{
+void printResult(string arquivo, double fitness, int found, double time_found, int total, double time, int num_chromosomes, int num_elite_set, int num_generations, int foundMyGen, double foundMyTime, int numProcs = 1, int numThreads = 1) {
 
     std::ofstream out;
-    out.open("csv/thread.csv", std::ios::app);
+    out.open("csv/openmp.csv", std::ios::app);
     // Arquivo;Processos;Threads;Fitness (Sequencial);Geração (Sequencial);Tempo (Sequencial);Fitness (Meu);Geração (Meu);Tempo (Meu);Gerações (Total);Tempo (Total);Cromossomos;Conjunto Elite;Mínimo de Gerações
     out << arquivo << ";" << numProcs << ';' << numThreads << ';' << fitnessSeq << ";" << found << ';' << time_found << ';' << fitness << ';' << foundMyGen << ";" << foundMyTime << ";" << total << ';' << time << ';' << num_chromosomes << ';' << num_elite_set << ';' << num_generations << "\n";
     out.close();
