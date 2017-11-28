@@ -760,6 +760,10 @@ int main(int argc, char **argv) {
     MPI_Comm_size(world, &numprocs);
 
     clock_t begin = clock();
+
+    omp_set_dynamic(0);
+    omp_set_num_threads(NTHREADS);
+
     begin_time = clock();
     foundSeqTime = begin;
     foundMyTime = begin;
