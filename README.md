@@ -16,8 +16,8 @@ Parallel Programming Lab at the Universidade Federal Fluminense
         - [PThreads](#pthreads)
         - [OpenMP](#openmp)
         - [MPI](#mpi)
-        - [MPI + PThreads](#mpi-pthreads)
-        - [MPI + OpenMP](#mpi-openmp)
+            - [MPI + PThreads](#mpi-pthreads)
+            - [MPI + OpenMP](#mpi-openmp)
 
 ## openmpi
 
@@ -113,26 +113,44 @@ Running [integral_mpi.c](coursework/assignment2/integral_mpi.c):
 
 ### Final Project
 
-[HEA](https://github.com/luanteylo/HEA) is a Hybrid Evolutionary Algorithm by [Luan Teylo](https://github.com/luanteylo) developed to solve the problem of task scheduling and data allocations for scientific workflows. HEA is a linear code with many heavy computational algorithms, meaning it may be slow to solve big problems. This Final Project's aim is to study HEA's linear code, implement several parallelism techniques and compare its performance.
-
-[HEA's linear code](https://github.com/luanteylo/HEA/blob/master/source/hea.cpp) performance was compared with
-[PThreads](#pthreads),
-[OpenMP](#openmp),
-[MPI](#mpi) and a combination of
-[MPI + PThreads](#mpi-openmp) and
-[MPI + OpenMP](#mpi-pthreads).
+[HEA](https://github.com/luanteylo/HEA) is a Hybrid Evolutionary
+Algorithm by [Luan Teylo](https://github.com/luanteylo) developed to
+solve the problem of task scheduling and data allocations for scientific
+workflows.
+HEA is a linear code with many heavy computational algorithms, meaning
+it may be slow to solve big problems. This Final Project aims to study
+HEA's linear code, implement several parallelism techniques and compare
+its performances
 
 You can check the presentation's slide SOON.
 
+HEA's [linear code](https://github.com/luanteylo/HEA/blob/master/source/hea.cpp) performance was compared with PThreads, OpenMP, MPI and a combination of MPI + PThreads and MPI + OpenMP.
+
+- [PThreads](#pthreads)
+- [OpenMP](#openmp)
+- [MPI](#mpi)
+    - [MPI + PThreads](#mpi-openmp)
+    - [MPI + OpenMP](#mpi-pthreads)
+
 #### PThreads
+
+    TODO
 
 #### OpenMP
 
+    TODO
+
 #### MPI
+
+    TODO
 
 #### MPI + PThreads
 
+    TODO
+
 #### MPI + OpenMP
+
+    TODO
 
 ## Authors
 
